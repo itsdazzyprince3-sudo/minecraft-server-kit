@@ -10,7 +10,6 @@ import platform
 import re
 import shutil
 import signal
-import socket
 import subprocess
 import sys
 import threading
@@ -139,22 +138,15 @@ def _tail_log(path: Path, max_bytes: int = 262144, lines: int = 300) -> str:
 
 
 def _local_ipv4() -> str | None:
-    """Best-effort route-selected local address for same-Wi-Fi clients; never reports a public IP."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.connect(("1.1.1.1", 80))
-        address = sock.getsockname()[0]
-        if address and not address.startswith("127."):
-            return address
-    except OSError:
-        pass
-    finally:
-        sock.close()
+    """Return only a Wi-Fi/hotspot IPv4; VPN and cellular route addresses are not LAN join targets."""
     try:
         result = subprocess.run(["ip", "-o", "-4", "addr", "show", "scope", "global"], capture_output=True, text=True, timeout=3)
-        for match in re.finditer(r"\binet\s+(\d{1,3}(?:\.\d{1,3}){3})/", result.stdout):
-            if not match.group(1).startswith("127."):
-                return match.group(1)
+        for line in result.stdout.splitlines():
+            device = re.match(r"^\d+:\s+([^\s:@]+)", line)
+            address = re.search(r"\binet\s+(\d{1,3}(?:\.\d{1,3}){3})/", line)
+            if device and address and re.match(r"^(?:wlan|wifi|swlan|ap|softap)\w*$", device.group(1), re.I):
+                if not address.group(1).startswith("127."):
+                    return address.group(1)
     except (OSError, subprocess.SubprocessError):
         pass
     return None

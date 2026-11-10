@@ -22,7 +22,7 @@ from runtime import (  # noqa: E402
     validate_port,
     validate_server_settings,
 )
-from manager import _properties_file, _set_geyser_port  # noqa: E402
+from manager import _local_ipv4, _properties_file, _set_geyser_port  # noqa: E402
 
 
 class RuntimeDetectionTests(unittest.TestCase):
@@ -69,6 +69,15 @@ class RuntimeDetectionTests(unittest.TestCase):
             selected, major = select_java_runtime(21, str(binaries[25]), str(prefix))
             self.assertEqual(Path(selected), binaries[21])
             self.assertEqual(major, 21)
+
+    def test_local_address_uses_wifi_not_vpn_interface(self):
+        output = "\n".join((
+            "7: tun0 inet 192.0.0.2/32 scope global tun0",
+            "8: wlan0 inet 192.168.1.77/24 brd 192.168.1.255 scope global wlan0",
+        ))
+        result = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
+        with patch("manager.subprocess.run", return_value=result):
+            self.assertEqual(_local_ipv4(), "192.168.1.77")
 
 
 class ConfigAndArgumentsTests(unittest.TestCase):
