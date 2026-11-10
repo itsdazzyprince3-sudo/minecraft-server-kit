@@ -15,7 +15,7 @@ A self-hosted Java server with a local web dashboard for logs, server-console co
    ./run.sh
    ```
 
-   The repository URL will be updated when the repo is published. On macOS/Linux, `bash run.sh` also works if the executable bit was lost.
+   On macOS/Linux, `bash run.sh` also works if the executable bit was lost.
 
 The launcher builds the dashboard and starts both containers in the foreground. Open **http://localhost:8080**. Logs stream in the terminal and are also shown in the page. Press **Ctrl+C** in that terminal to stop the stack. Re-running the command starts it again. The first startup downloads the server and may take a few minutes.
 
@@ -29,6 +29,7 @@ This is not hosted by GitHub and does not run while your machine is off, asleep,
 - The dashboard can edit core server settings and apply them by recreating the server container. It accepts `.jar` uploads into `data/plugins` for Paper or `data/mods` for Fabric/Forge/NeoForge.
 - The default memory limit is 4 GB with conservative view/simulation distances. Tune these in the dashboard or `.env` to fit your computer. More players, loaded chunks, and heavy mods require more resources.
 - Paper's built-in anti-x-ray is enabled by the tracked starter config in `config/paper-world-defaults.yml` using engine mode 1 as a lighter default. Tune it there and restart if desired. Use a compatible anti-cheat plugin if desired; no anti-cheat plugin is preinstalled.
+- AxGraves is preconfigured as the death-chest plugin for Paper; it stores dropped inventory in a grave instead of keeping it in the player inventory. The selected release lists compatibility through Minecraft 26.3. See the [AxGraves project](https://modrinth.com/plugin/axgraves).
 
 ## Versions, mods, and cross-play
 
@@ -36,7 +37,7 @@ The default `MINECRAFT_VERSION=LATEST` follows the server image's latest support
 
 Paper is intended for plugins. Fabric, Forge, and NeoForge are separate server types intended for mods. The server dashboard routes uploaded JAR files according to the selected type, but it does not resolve mod dependencies or install a client modpack. Players need compatible mod versions, and most Java mods do not work for Bedrock clients. Geyser offers Bedrock access to compatible Java servers; it does not make arbitrary Java modpacks playable on Bedrock.
 
-For a death chest, anti-cheat, or other plugin, upload a trusted plugin JAR in the dashboard while using Paper, then restart the server. Check that the plugin explicitly supports your Paper/Minecraft version. Death-chest plugins store death drops in a chest/grave; this is not keep-inventory. Do not download JARs from untrusted sites.
+For additional behavior, upload a trusted plugin JAR in the dashboard while using Paper, then restart the server. Check that the plugin explicitly supports your Paper/Minecraft version. Do not download JARs from untrusted sites.
 
 ## Admin and security
 
@@ -44,7 +45,7 @@ Use the dashboard to run console commands directly. Enable the whitelist in sett
 
 ## Data and backups
 
-Worlds, plugin/mod files, and server configuration live in `data/`. Stop the stack and copy the whole `data/` directory somewhere safe before changing server software or Minecraft version. Do not delete `data/` unless you intend to erase your worlds and configuration. `.env` contains local settings and the RCON secret; it is not committed.
+Worlds and plugin/mod files live in `data/`; Paper configuration overrides live in `config/`. Stop the stack and back up both directories before changing server software or Minecraft version. Do not delete them unless you intend to erase your world or settings. `.env` contains local settings and the RCON secret; it is not committed.
 
 ## Troubleshooting
 
