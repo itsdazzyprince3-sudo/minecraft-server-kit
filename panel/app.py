@@ -14,7 +14,7 @@ ENV_FILE = PROJECT / ".env"
 CONTAINER = os.getenv("SERVER_CONTAINER", "mc-server")
 
 ALLOWED_SETTINGS = {
-    "SERVER_TYPE", "MINECRAFT_VERSION", "MEMORY", "MAX_PLAYERS",
+    "SERVER_TYPE", "MINECRAFT_VERSION", "MEMORY", "WORLD_NAME", "SEED", "SERVER_ADDRESS", "MAX_PLAYERS",
     "VIEW_DISTANCE", "SIMULATION_DISTANCE", "DIFFICULTY", "PVP",
     "ENABLE_WHITELIST", "ENFORCE_WHITELIST", "JAVA_PORT", "BEDROCK_PORT",
     "PANEL_PORT", "MOTD", "SPAWN_PROTECTION"
@@ -83,7 +83,11 @@ def status():
         state["players"] = rcon("list")
     except Exception:
         state["players"] = "RCON not ready yet"
-    state["config"] = {k: v for k, v in get_env().items() if k in ALLOWED_SETTINGS}
+    config = get_env()
+    config.setdefault("WORLD_NAME", "SurvivalSMP")
+    config.setdefault("SEED", "399918057248930")
+    config.setdefault("SERVER_ADDRESS", "survivalsmp.vy")
+    state["config"] = {k: v for k, v in config.items() if k in ALLOWED_SETTINGS}
     return jsonify(state)
 
 
@@ -129,6 +133,19 @@ def settings():
             return jsonify(error=f"Invalid value for {key}"), 400
         if key == "SERVER_TYPE" and value.upper() not in {"PAPER", "FABRIC", "FORGE", "NEOFORGE", "VANILLA"}:
             return jsonify(error="Server type must be PAPER, FABRIC, FORGE, NEOFORGE, or VANILLA."), 400
+        if key == "WORLD_NAME" and (value in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9 _-]{1,64}", value)):
+            return jsonify(error="World name must be 1–64 letters, digits, spaces, underscores, or hyphens."), 400
+        if key == "SEED":
+            try:
+                seed = int(value)
+                if not -(2**63) <= seed <= 2**63 - 1:
+                    raise ValueError()
+            except ValueError:
+                return jsonify(error="Seed must be a signed 64-bit integer."), 400
+        if key == "SERVER_ADDRESS":
+            label = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+            if len(value) > 253 or not re.fullmatch(label + r"(?:\." + label + r")+", value):
+                return jsonify(error="Address must be a hostname such as survivalsmp.example.com; DNS still must point to this server."), 400
         if key in {"JAVA_PORT", "BEDROCK_PORT", "PANEL_PORT", "MAX_PLAYERS", "VIEW_DISTANCE", "SIMULATION_DISTANCE", "SPAWN_PROTECTION"}:
             try:
                 n = int(value)

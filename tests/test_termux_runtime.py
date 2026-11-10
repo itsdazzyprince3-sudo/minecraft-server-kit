@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +21,7 @@ from runtime import (  # noqa: E402
     validate_port,
     validate_server_settings,
 )
-from manager import _set_geyser_port  # noqa: E402
+from manager import _properties_file, _set_geyser_port  # noqa: E402
 
 
 class RuntimeDetectionTests(unittest.TestCase):
@@ -67,6 +68,27 @@ class ConfigAndArgumentsTests(unittest.TestCase):
         self.assertEqual(result["MEMORY"], "1G")
         args = build_java_args("/usr/bin/java", "/srv/data/paper.jar", "1G")
         self.assertEqual(args, ["/usr/bin/java", "-Xms512M", "-Xmx1G", "-jar", "/srv/data/paper.jar", "--nogui"])
+
+    def test_survivalsmp_defaults_and_safe_world_settings(self):
+        result = validate_server_settings({"MINECRAFT_VERSION": "26.3"})
+        self.assertEqual(result["WORLD_NAME"], "SurvivalSMP")
+        self.assertEqual(result["SEED"], "399918057248930")
+        self.assertEqual(result["SERVER_ADDRESS"], "survivalsmp.vy")
+        with self.assertRaises(ValueError):
+            validate_server_settings({"WORLD_NAME": "../other"})
+        with self.assertRaises(ValueError):
+            validate_server_settings({"SEED": str(2**63)})
+        with self.assertRaises(ValueError):
+            validate_server_settings({"SERVER_ADDRESS": "bad host"})
+
+    def test_paper_properties_get_requested_world_and_seed(self):
+        import manager
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(manager, "DATA", Path(tmp)):
+            _properties_file({"WORLD_NAME": "SurvivalSMP", "SEED": "399918057248930"})
+            content = (Path(tmp) / "server.properties").read_text()
+            self.assertIn("level-name=SurvivalSMP", content)
+            self.assertIn("level-seed=399918057248930", content)
 
     def test_env_parser_does_not_execute_values_and_updates_preserve_other_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -137,6 +159,8 @@ class DockerPreservationTests(unittest.TestCase):
         dockerfile = (ROOT / "panel" / "Dockerfile").read_text()
         panel = (ROOT / "panel" / "app.py").read_text()
         self.assertIn("itzg/minecraft-server", compose)
+        self.assertIn('LEVEL: "${WORLD_NAME:-SurvivalSMP}"', compose)
+        self.assertIn('SEED: "${SEED:-399918057248930}"', compose)
         self.assertIn("./data:/data", compose)
         self.assertIn(":19132/udp", compose)
         self.assertIn("docker compose --project-name mcstack up --build", launcher)

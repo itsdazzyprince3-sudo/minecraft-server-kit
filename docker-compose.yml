@@ -13,6 +13,8 @@ services:
       EULA: "${EULA:-FALSE}"
       TYPE: "${SERVER_TYPE:-PAPER}"
       VERSION: "${MINECRAFT_VERSION:-LATEST}"
+      LEVEL: "${WORLD_NAME:-SurvivalSMP}"
+      SEED: "${SEED:-399918057248930}"
       MEMORY: "${MEMORY:-4G}"
       USE_AIKAR_FLAGS: "true"
       ENABLE_RCON: "true"

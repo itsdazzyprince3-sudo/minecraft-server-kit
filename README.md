@@ -19,6 +19,8 @@ On first launch, the script asks you to accept the [Minecraft EULA](https://aka.
 
 The panel is bound to localhost and has Docker-socket access; do not port-forward its port. The default Java game port is **25565/TCP** and the Bedrock Geyser port is **19132/UDP**. To accept connections from outside your home network, configure the host firewall and router. Set a whitelist for a private server.
 
+The requested defaults are world folder **`SurvivalSMP`**, seed **`399918057248930`**, and displayed hostname **`survivalsmp.vy`**. The image uses `LEVEL` for the world folder and `SEED` for generation ([image variable docs](https://docker-minecraft-server.readthedocs.io/en/latest/variables/)). The hostname is only a display/config value; it does not create DNS or change the server's bind address. IANA's current delegated-TLD list does not include `.vy`, so ordinary public DNS cannot resolve `survivalsmp.vy` at present ([IANA TLD list](https://data.iana.org/TLD/tlds-alpha-by-domain.txt)). Use a registered domain and point its DNS to the host, then configure router/firewall forwarding. Keep `server-ip` blank so the server listens on its normal interfaces. The seed only determines newly generated terrain. Changing the world name selects a different save folder and leaves other world folders intact; back up worlds before changing either value. Minecraft's [official server guide](https://help.minecraft.net/hc/en-us/articles/360058525452-How-to-Setup-a-Minecraft-Java-Edition-Server) describes the seed and network setup.
+
 This is intended for Linux systems that support the Docker Engine and Compose v2 and the image's CPU architecture. It is not a promise that every Linux distribution, kernel, or device works without installing those prerequisites. On desktop Linux, Docker mode is the supported project workflow; the native launcher below is intentionally Termux-specific.
 
 ## Native Android Termux mode
@@ -70,7 +72,7 @@ For better odds of remaining active, keep Termux open, plug the device into powe
 
 ## Shared server configuration and files
 
-The Docker mode and Termux mode can reuse the compatible settings in `.env`: Minecraft version, Java port, player count, view/simulation distance, difficulty, PvP, whitelist, MOTD, and plugin URLs. Native-only heap/channel/panel settings live in the ignored `native/config.json`. The EULA is requested interactively and recorded in `.env` and `data/eula.txt`.
+The Docker mode and Termux mode can reuse the compatible settings in `.env`: Minecraft version, world name, seed, advertised hostname, Java port, player count, view/simulation distance, difficulty, PvP, whitelist, MOTD, and plugin URLs. Native-only heap/channel/panel settings live in the ignored `native/config.json`. The EULA is requested interactively and recorded in `.env` and `data/eula.txt`.
 
 Worlds and Paper server files are in `data/`. The committed anti-x-ray defaults are in `config/paper-world-defaults.yml`; Termux uses that directory for Paper config when it can safely create the link. If a non-empty `data/config/` already exists, the native runtime leaves it alone rather than replacing it. Back up `data/` and `config/` before changing server software or versions. Never delete either directory as a troubleshooting step unless you intend to remove its contents.
 

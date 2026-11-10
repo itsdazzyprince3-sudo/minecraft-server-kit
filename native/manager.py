@@ -171,6 +171,8 @@ def _ensure_config_link() -> None:
 def _properties_file(settings: dict[str, str]) -> None:
     path = DATA / "server.properties"
     update = {
+        "level-name": settings.get("WORLD_NAME", "SurvivalSMP"),
+        "level-seed": settings.get("SEED", "399918057248930"),
         "server-port": settings.get("JAVA_PORT", "25565"),
         "max-players": settings.get("MAX_PLAYERS", "20"),
         "view-distance": settings.get("VIEW_DISTANCE", "8"),
@@ -293,6 +295,9 @@ class NativeServer:
 
     def settings(self) -> dict[str, str]:
         raw = parse_env_file(self.settings_path)
+        raw.setdefault("WORLD_NAME", "SurvivalSMP")
+        raw.setdefault("SEED", "399918057248930")
+        raw.setdefault("SERVER_ADDRESS", "survivalsmp.vy")
         native = _read_native_config()
         # Do not use Docker's generic 4G default on a phone; Termux has an isolated 1G default.
         raw["TERMUX_MEMORY"] = str(native.get("memory", raw.get("TERMUX_MEMORY", "1G")))
@@ -509,7 +514,7 @@ class NativeServer:
                 "java": java, "java_major": java_major, "arch": normalize_arch(platform.machine())}
 
     def update_settings(self, updates: dict[str, Any]) -> dict[str, str]:
-        allowed = {"JAVA_PORT", "BEDROCK_PORT", "MAX_PLAYERS", "VIEW_DISTANCE", "SIMULATION_DISTANCE", "DIFFICULTY", "PVP", "ENABLE_WHITELIST", "MOTD"}
+        allowed = {"WORLD_NAME", "SEED", "SERVER_ADDRESS", "JAVA_PORT", "BEDROCK_PORT", "MAX_PLAYERS", "VIEW_DISTANCE", "SIMULATION_DISTANCE", "DIFFICULTY", "PVP", "ENABLE_WHITELIST", "MOTD"}
         shared = {key: str(value).strip() for key, value in updates.items() if key in allowed}
         if "MOTD" in shared and (len(shared["MOTD"]) > 120 or "\n" in shared["MOTD"] or "\r" in shared["MOTD"]):
             raise ValueError("MOTD must be a single line of at most 120 characters.")

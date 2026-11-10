@@ -22,6 +22,8 @@ if [[ ! -f .env ]]; then
   echo "Created .env with a random private RCON password. Keep .env private; it is git-ignored."
 fi
 env_value() { sed -n "s/^$1=//p" .env | head -n 1; }
+server_address="$(env_value SERVER_ADDRESS)"
+server_address="${server_address:-survivalsmp.vy}"
 
 if [[ "$(env_value EULA)" != "TRUE" ]]; then
   echo "Please read the Minecraft EULA: https://aka.ms/MinecraftEULA"
@@ -40,6 +42,7 @@ fi
 
 mkdir -p data
 export PROJECT_DIR="$(pwd -P)"
-printf 'Building/starting Minecraft server and local control panel.\n\nPanel: http://localhost:%s\nJava: localhost:%s (TCP)\nBedrock: localhost:%s (UDP)\n\nPress Ctrl+C in this terminal to stop both containers.\n\n' \
-  "$(env_value PANEL_PORT)" "$(env_value JAVA_PORT)" "$(env_value BEDROCK_PORT)"
+printf 'Building/starting Minecraft server and local control panel.\n\nPanel: http://localhost:%s\nJava: %s:%s (TCP)\nBedrock: %s:%s (UDP)\nThe configured hostname is display-only; set public DNS and port forwarding.\n\nPress Ctrl+C in this terminal to stop both containers.\n\n' \
+  "$(env_value PANEL_PORT)" "$server_address" "$(env_value JAVA_PORT)" \
+  "$server_address" "$(env_value BEDROCK_PORT)"
 exec docker compose --project-name mcstack up --build

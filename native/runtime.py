@@ -171,6 +171,19 @@ def validate_server_settings(settings: Mapping[str, str]) -> dict[str, str]:
     result["MINECRAFT_VERSION"] = version.upper() if version.lower() == "latest" else version
     result["JAVA_PORT"] = str(validate_port(result.get("JAVA_PORT", "25565")))
     result["BEDROCK_PORT"] = str(validate_port(result.get("BEDROCK_PORT", "19132")))
+    world_name = result.get("WORLD_NAME", "SurvivalSMP").strip()
+    if not re.fullmatch(r"[A-Za-z0-9 _-]{1,64}", world_name) or world_name in {".", ".."}:
+        raise ValueError("WORLD_NAME must be 1–64 letters, digits, spaces, underscores, or hyphens; path separators are not allowed.")
+    result["WORLD_NAME"] = world_name
+    seed = result.get("SEED", "399918057248930").strip()
+    if not re.fullmatch(r"-?\d{1,20}", seed) or not -(2**63) <= int(seed) <= 2**63 - 1:
+        raise ValueError("SEED must be a signed 64-bit integer.")
+    result["SEED"] = seed
+    address = result.get("SERVER_ADDRESS", "survivalsmp.vy").strip()
+    label = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    if len(address) > 253 or not re.fullmatch(label + r"(?:\." + label + r")+", address):
+        raise ValueError("SERVER_ADDRESS must be a hostname such as survivalsmp.example.com; it is display-only and does not configure DNS.")
+    result["SERVER_ADDRESS"] = address
     result["MEMORY"] = result.get("TERMUX_MEMORY", result.get("MEMORY", "1G"))
     parse_memory_mb(result["MEMORY"])
     if "MAX_PLAYERS" in result:
