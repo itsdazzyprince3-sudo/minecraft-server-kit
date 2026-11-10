@@ -26,8 +26,12 @@ else
 fi
 
 command -v python3 >/dev/null 2>&1 || fail "Python installation did not provide python3. Check the Termux package mirror and retry."
-command -v java >/dev/null 2>&1 || fail "Java is not on PATH after OpenJDK 25 installation. Reopen Termux and retry."
-java_out="$(java -version 2>&1 || true)"
+java_bin="$PREFIX/lib/jvm/java-25-openjdk/bin/java"
+if [[ ! -x "$java_bin" ]]; then
+  java_bin="$(command -v java || true)"
+fi
+[[ -n "$java_bin" && -x "$java_bin" ]] || fail "Could not find a runnable Java binary after installing openjdk-25. Check $PREFIX/lib/jvm/ and retry."
+java_out="$("$java_bin" -version 2>&1 || true)"
 java_major="$(JAVA_VERSION_OUTPUT="$java_out" python3 - <<'PY'
 import os, re
 text = os.environ.get("JAVA_VERSION_OUTPUT", "")
@@ -37,7 +41,8 @@ if not match:
 print((int(match.group(2)) if match and match.group(1) == "1" else int(match.group(1))) if match else 0)
 PY
 )"
-((java_major >= 25)) || fail "Paper 26.1+ requires Java 25. Detected Java ${java_major:-unknown}; ensure openjdk-25 is installed and selected."
+((java_major >= 25)) || fail "Paper 26.1+ requires Java 25. The selected binary $java_bin is Java ${java_major:-unknown}; reinstall openjdk-25 and check $PREFIX/lib/jvm/java-25-openjdk/bin/java."
+echo "Verified Java ${java_major} at $java_bin. The server launcher will select this compatible version even if the Termux `java` command points to another JDK."
 
 available_kb="$(df -Pk "$HOME" | awk 'NR==2 {print $4}')"
 [[ "$available_kb" =~ ^[0-9]+$ ]] || fail "Could not determine free storage in $HOME."

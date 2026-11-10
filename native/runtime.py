@@ -40,6 +40,44 @@ def java_major_from_version(text: str) -> int:
     return second if first == 1 else first
 
 
+def select_java_runtime(required_major: int, default_java: str | None, prefix: str | None = None) -> tuple[str, int]:
+    """Prefer an installed versioned JDK matching Paper, even if Termux's `java` points elsewhere."""
+    candidates: list[Path] = []
+    java_home = os.environ.get("JAVA_HOME", "")
+    if java_home:
+        candidates.append(Path(java_home) / "bin" / "java")
+    prefix = prefix if prefix is not None else os.environ.get("PREFIX", "")
+    if prefix:
+        candidates.extend(sorted((Path(prefix) / "lib" / "jvm").glob("java-*-openjdk/bin/java")))
+    if default_java:
+        candidates.append(Path(default_java))
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key not in seen and candidate.is_file() and os.access(candidate, os.X_OK):
+            seen.add(key)
+            unique.append(candidate)
+    detected: list[tuple[Path, int]] = []
+    for candidate in unique:
+        try:
+            result = subprocess.run([str(candidate), "-version"], capture_output=True, text=True, timeout=8)
+            major = java_major_from_version(result.stderr + result.stdout)
+            detected.append((candidate, major))
+        except (OSError, subprocess.SubprocessError, ValueError):
+            continue
+    exact = [(path, major) for path, major in detected if major == required_major]
+    compatible = exact or sorted(
+        ((path, major) for path, major in detected if major > required_major),
+        key=lambda item: item[1],
+    )
+    if compatible:
+        path, major = compatible[0]
+        return str(path), major
+    found = ", ".join(f"Java {major} at {path}" for path, major in detected) or "no runnable Java binaries"
+    raise ValueError(f"Paper requires Java {required_major}; found {found}.")
+
+
 def _version_tuple(value: str) -> tuple[int, ...]:
     if not VERSION_RE.fullmatch(value) or value.upper() == "LATEST":
         raise ValueError(f"Invalid Minecraft version: {value!r}")

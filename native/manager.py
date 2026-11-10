@@ -30,6 +30,7 @@ from runtime import (
     parse_env_file,
     parse_memory_mb,
     required_java_for_paper,
+    select_java_runtime,
     stop_process,
     update_env_file,
     validate_port,
@@ -292,6 +293,7 @@ class NativeServer:
         self.last_error = ""
         self.stop_event = threading.Event()
         self.settings_path = ROOT / ".env"
+        self.java_path: str | None = None
 
     def settings(self) -> dict[str, str]:
         raw = parse_env_file(self.settings_path)
@@ -306,7 +308,7 @@ class NativeServer:
         raw["SERVER_TYPE"] = raw.get("SERVER_TYPE", "PAPER").upper()
         return validate_server_settings(raw)
 
-    def check_host(self, settings: dict[str, str]) -> tuple[str, int]:
+    def check_host(self, settings: dict[str, str]) -> tuple[str, int, str]:
         if not is_termux():
             raise RuntimeError("Native runtime is Termux-only. On desktop Linux use the unchanged Docker command: ./run.sh")
         arch = normalize_arch(platform.machine())
@@ -318,14 +320,11 @@ class NativeServer:
         if version == "LATEST":
             version = resolve_paper_version(version)
         required = required_java_for_paper(version)
-        java = shutil.which("java")
-        if not java:
-            raise RuntimeError("Java is missing. Run bash install-termux.sh to install OpenJDK 25.")
-        result = subprocess.run([java, "-version"], capture_output=True, text=True, timeout=10)
-        major = java_major_from_version(result.stderr + result.stdout)
-        if major < required:
-            raise RuntimeError(f"Paper {version} recommends Java {required}; this Termux Java is {major}. Run bash install-termux.sh and select a compatible runtime.")
-        return version, major
+        try:
+            java, major = select_java_runtime(required, shutil.which("java"), os.environ.get("PREFIX", ""))
+        except ValueError as exc:
+            raise RuntimeError(f"Paper {version} requires Java {required}. {exc} Run bash install-termux.sh to install the compatible OpenJDK package.") from exc
+        return version, major, java
 
     def _ensure_server_jar(self, version: str, update: bool = False, channel: str = "STABLE") -> Path:
         DATA.mkdir(parents=True, exist_ok=True)
@@ -373,7 +372,8 @@ class NativeServer:
                 return {"ok": True, "message": "Server is already running."}
             try:
                 settings = self.settings()
-                version, java_major = self.check_host(settings)
+                version, java_major, java_path = self.check_host(settings)
+                self.java_path = java_path
                 _ensure_eula()
                 _ensure_config_link()
                 channel = settings.get("PAPER_CHANNEL", "STABLE")
@@ -383,7 +383,7 @@ class NativeServer:
                 for geyser_config in DATA.glob("plugins/Geyser*/config.yml"):
                     _set_geyser_port(geyser_config, int(settings["BEDROCK_PORT"]))
                 memory = settings["TERMUX_MEMORY"]
-                args = build_java_args(shutil.which("java") or "java", server_jar, memory)
+                args = build_java_args(java_path, server_jar, memory)
                 args[-1:] = ["--nogui"]
                 self.last_error = ""
                 self.stop_event.clear()
@@ -488,7 +488,7 @@ class NativeServer:
                 if match:
                     rss = int(match.group(1)) // 1024
         settings = self.settings()
-        java = shutil.which("java")
+        java = self.java_path or shutil.which("java")
         java_major = None
         if java:
             try:

@@ -16,6 +16,7 @@ from runtime import (  # noqa: E402
     parse_env_file,
     parse_memory_mb,
     required_java_for_paper,
+    select_java_runtime,
     stop_process,
     update_env_file,
     validate_port,
@@ -51,6 +52,23 @@ class RuntimeDetectionTests(unittest.TestCase):
         self.assertEqual(required_java_for_paper("1.11.2"), 8)
         with self.assertRaises(ValueError):
             required_java_for_paper("not-a-version")
+
+    def test_selects_installed_exact_jdk_over_default_java(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp) / "usr"
+            binaries = {}
+            for major in (21, 25):
+                binary = prefix / "lib" / "jvm" / f"java-{major}-openjdk" / "bin" / "java"
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_text(f'#!/bin/sh\necho \'openjdk version "{major}.0.1"\' >&2\n')
+                binary.chmod(0o755)
+                binaries[major] = binary
+            selected, major = select_java_runtime(25, str(binaries[21]), str(prefix))
+            self.assertEqual(Path(selected), binaries[25])
+            self.assertEqual(major, 25)
+            selected, major = select_java_runtime(21, str(binaries[25]), str(prefix))
+            self.assertEqual(Path(selected), binaries[21])
+            self.assertEqual(major, 21)
 
 
 class ConfigAndArgumentsTests(unittest.TestCase):
