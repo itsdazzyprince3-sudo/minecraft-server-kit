@@ -7,3 +7,7 @@ config/*
 __pycache__/
 *.py[cod]
 .DS_Store
+logs/
+native/config.json
+native/server-version.json
+native/*.tmp

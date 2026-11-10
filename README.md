@@ -1,63 +1,107 @@
 # Minecraft Server Kit
 
-A self-hosted Java server with a local web dashboard for logs, server-console commands, settings, and uploading plugins or mods. Docker Compose runs the server and panel on your own machine.
+A self-hosted Java Minecraft server with two separate ways to run it:
 
-## Start it
+- **Docker mode** for Linux computers with Docker Engine and Docker Compose v2 (and Docker Desktop on Windows/macOS).
+- **Native Termux mode** for non-root Android ARM64 devices. This mode starts Paper directly in Termux and does not use Docker, Compose, containerd, or systemd.
 
-1. Install and start Docker Desktop (Windows/macOS) or Docker Engine with Docker Compose v2 (Linux).
-2. Read the [Minecraft EULA](https://aka.ms/MinecraftEULA). On the first launch, the script asks you to confirm that you accept it.
-3. Run:
+Both modes use the same `data/` world directory. **Never run the Docker and native servers at the same time against that data.** Always stop one deployment before starting the other.
+
+## Docker mode — Linux and desktop computers
+
+Install and start Docker Engine plus the Docker Compose v2 plugin on Linux, or Docker Desktop on Windows/macOS. Then, from the repository directory:
+
+```sh
+./run.sh
+```
+
+On first launch, the script asks you to accept the [Minecraft EULA](https://aka.ms/MinecraftEULA). The launcher builds the local admin panel and starts the server in the foreground. Open **http://localhost:8080** to see logs, run console/admin commands, change settings, and upload plugin/mod JARs. Press **Ctrl+C** in the terminal to stop the stack. Docker mode retains Paper, Fabric, Forge, NeoForge, Vanilla, and the existing Compose-managed setup.
+
+The panel is bound to localhost and has Docker-socket access; do not port-forward its port. The default Java game port is **25565/TCP** and the Bedrock Geyser port is **19132/UDP**. To accept connections from outside your home network, configure the host firewall and router. Set a whitelist for a private server.
+
+This is intended for Linux systems that support the Docker Engine and Compose v2 and the image's CPU architecture. It is not a promise that every Linux distribution, kernel, or device works without installing those prerequisites. On desktop Linux, Docker mode is the supported project workflow; the native launcher below is intentionally Termux-specific.
+
+## Native Android Termux mode
+
+Native mode currently supports **Android ARM64 (aarch64), Termux, and Paper only**. It does not use or alter the Docker Compose implementation. Java mods, Fabric/Forge/NeoForge, and Vanilla remain Docker-mode options. Bedrock joining is provided only when the compatible Geyser/Floodgate Paper plugins load successfully.
+
+### Install and start
+
+1. Install a current Termux app from [F-Droid](https://f-droid.org/packages/com.termux/) or the [official Termux GitHub releases](https://github.com/termux/termux-app/releases). Keep the app and any Termux add-ons from the same source/signing key. Very old or unsupported Play Store builds can have package problems.
+2. Open Termux and clone the repo into Termux's **private home directory**, not shared Android storage:
 
    ```sh
+   cd ~
    git clone https://github.com/itsdazzyprince3-sudo/minecraft-server-kit.git
    cd minecraft-server-kit
-   chmod +x run.sh
-   ./run.sh
+   bash install-termux.sh
    ```
 
-   On macOS/Linux, `bash run.sh` also works if the executable bit was lost.
+   The installer checks ARM64, Python, OpenJDK 25, and free storage. It installs only missing packages, creates directories without replacing existing files, and leaves any existing `.env`, worlds, and native settings untouched. It stops if less than 1.5 GB is free; 5 GB or more is recommended because worlds and backups grow.
+3. Read and accept the Minecraft EULA when prompted by the first run:
 
-The launcher builds the dashboard and starts both containers in the foreground. Open **http://localhost:8080**. Logs stream in the terminal and are also shown in the page. Press **Ctrl+C** in that terminal to stop the stack. Re-running the command starts it again. The first startup downloads the server and may take a few minutes.
+   ```sh
+   bash termux-run.sh
+   ```
 
-This is not hosted by GitHub and does not run while your machine is off, asleep, or Docker is stopped. Your friends can connect only while the server is running. For internet access, allow the Java port over TCP and Bedrock port over UDP in your computer firewall/router. The dashboard is deliberately bound to `127.0.0.1`; do not port-forward its panel port.
+   It starts Paper and a local control page at **http://127.0.0.1:8080**. Logs appear in Termux and are saved to `logs/native-server.log`. The page has status, start/stop/restart, console commands, recent logs, basic settings, Java/architecture information, and process memory reporting. Press **Ctrl+C** in Termux to send Paper its `stop` command, wait for a graceful save, and then stop the manager. SIGTERM/SIGKILL are last-resort fallbacks only.
 
-## Included setup
+The panel listens on the phone itself, not the LAN. It does not enable RCON. For plugins, copy a trusted compatible `.jar` into `data/plugins/` and restart the server. The same preset plugin download URLs from `.env` are used when possible; failed optional plugin downloads are logged and do not delete worlds or stop a server download. Native mode does not install arbitrary modpacks or provide a public management panel.
 
-- Paper is the default Java server software, with auto-downloads configured for Geyser/Floodgate (Bedrock joining) and ViaVersion/ViaBackwards (older Java client compatibility, subject to plugin and Minecraft version support).
-- The default game ports are Java **25565/TCP** and Bedrock **19132/UDP**.
-- The dashboard displays container status and recent logs, supports start/stop/restart, and sends server-console commands over authenticated RCON. Examples include `op`, `ban`, `tp`, `kill`, `whitelist add`, and `save-all`.
-- The dashboard can edit core server settings and apply them by recreating the server container. It accepts `.jar` uploads into `data/plugins` for Paper or `data/mods` for Fabric/Forge/NeoForge.
-- The default memory limit is 4 GB with conservative view/simulation distances. Tune these in the dashboard or `.env` to fit your computer. More players, loaded chunks, and heavy mods require more resources.
-- Paper's built-in anti-x-ray is enabled by the tracked starter config in `config/paper-world-defaults.yml` using engine mode 1 as a lighter default. Tune it there and restart if desired. Use a compatible anti-cheat plugin if desired; no anti-cheat plugin is preinstalled.
-- AxGraves is preconfigured as the death-chest plugin for Paper; it stores dropped inventory in a grave instead of keeping it in the player inventory. The selected release lists compatibility through Minecraft 26.3. See the [AxGraves project](https://modrinth.com/plugin/axgraves).
+To install dependencies manually instead of using the script, run `pkg update && pkg install python openjdk-25` in Termux, then run `bash termux-run.sh`. OpenJDK 25 is the current package targeted for recent Paper versions.
 
-## Versions, mods, and cross-play
+### Version and Java compatibility
 
-The default `MINECRAFT_VERSION=LATEST` follows the server image's latest supported release. You can select a specific upstream-supported release in the dashboard, including `26.3` only if it has been released and the server image supports it. Arbitrary or future version numbers cannot be guaranteed. Version changes may require a new server download and could affect the world; make a backup first.
+Paper's published recommended Java matrix is: Minecraft **26.1 and later: Java 25**; **1.20 through 1.21.11: Java 21**; **1.17 through 1.19: Java 17**; **1.16.5: Java 16**; **1.12 through 1.16.4: Java 11**; and **1.7.10 through 1.11: Java 8**. The native launcher checks the selected release against the installed Java major before starting. See [PaperMC's current requirements](https://docs.papermc.io/paper/getting-started/).
 
-Paper is intended for plugins. Fabric, Forge, and NeoForge are separate server types intended for mods. The server dashboard routes uploaded JAR files according to the selected type, but it does not resolve mod dependencies or install a client modpack. Players need compatible mod versions, and most Java mods do not work for Bedrock clients. Geyser offers Bedrock access to compatible Java servers; it does not make arbitrary Java modpacks playable on Bedrock.
+Native mode defaults to Paper's **STABLE** build channel. `LATEST` resolves through the official PaperMC downloads API. A Minecraft release may exist but have no stable Paper build yet. In that case, the launcher stops with a message rather than silently installing an alpha build. If you explicitly accept the risk, change `paper_channel` to `ALPHA` in `native/config.json`; experimental builds can be unstable and unsupported. PaperMC asks automated download clients to identify themselves with a User-Agent and recommends stable builds; the native downloader follows that guidance. See [PaperMC's downloads-service docs](https://docs.papermc.io/misc/downloads-service/).
 
-For additional behavior, upload a trusted plugin JAR in the dashboard while using Paper, then restart the server. Check that the plugin explicitly supports your Paper/Minecraft version. Do not download JARs from untrusted sites.
+For a version change, stop the server and make a complete backup of `data/` first. Change `MINECRAFT_VERSION` in `.env`, then run:
 
-## Admin and security
+```sh
+bash termux-run.sh --update
+```
 
-Use the dashboard to run console commands directly. Enable the whitelist in settings for a private server, then add players with `whitelist add PlayerName`. The RCON password is randomly generated in `.env`; that file is ignored by Git and should stay private. The dashboard has access to the local Docker socket because it needs to manage the server, so keep it bound to localhost and never expose it to the public internet.
+The launcher requires you to type `I HAVE A WORLD BACKUP` before it replaces the Paper JAR. It preserves the previous JAR in `data/server-jar-backups/`; that JAR backup is not a substitute for backing up worlds. A version upgrade can change world data and may not be reversible.
 
-## Data and backups
+### Termux and Android limitations
 
-Worlds and plugin/mod files live in `data/`; Paper configuration overrides live in `config/`. Stop the stack and back up both directories before changing server software or Minecraft version. Do not delete them unless you intend to erase your world or settings. `.env` contains local settings and the RCON secret; it is not committed.
+Termux runs inside Android's app sandbox. Install and run this project under `$HOME` (normally `/data/data/com.termux/files/home`); shared/emulated storage can lack the file-permission behavior a server needs. The installer requires at least 1.5 GB free and recommends 5 GB or more. The native heap defaults to **1 GB** in `native/config.json`; lower or raise it to fit your phone, but leave memory for Android and Termux itself.
+
+For better odds of remaining active, keep Termux open, plug the device into power, run `termux-wake-lock`, and exempt Termux from battery optimization if Android offers that setting. **This does not guarantee 24/7 uptime.** Android Doze can restrict CPU and network activity, and Android/manufacturer power policies can suspend or kill background processes. Thermals, battery drain, mobile-network restrictions, carrier-grade NAT, and changing IP addresses can also prevent reliable hosting. Do not use this as a production or guaranteed always-on host.
+
+## Shared server configuration and files
+
+The Docker mode and Termux mode can reuse the compatible settings in `.env`: Minecraft version, Java port, player count, view/simulation distance, difficulty, PvP, whitelist, MOTD, and plugin URLs. Native-only heap/channel/panel settings live in the ignored `native/config.json`. The EULA is requested interactively and recorded in `.env` and `data/eula.txt`.
+
+Worlds and Paper server files are in `data/`. The committed anti-x-ray defaults are in `config/paper-world-defaults.yml`; Termux uses that directory for Paper config when it can safely create the link. If a non-empty `data/config/` already exists, the native runtime leaves it alone rather than replacing it. Back up `data/` and `config/` before changing server software or versions. Never delete either directory as a troubleshooting step unless you intend to remove its contents.
+
+Paper's built-in anti-x-ray is enabled with engine mode 1 in the starter config. AxGraves is preconfigured in the plugin download list for a death-grave workflow; plugin support depends on the selected Paper version. It stores drops at death rather than using keep-inventory. Geyser/Floodgate and ViaVersion/ViaBackwards are likewise version-dependent. Modded Java clients generally cannot be made compatible with Bedrock just by adding Geyser.
+
+## Testing
+
+Run the standard-library tests on Linux/macOS (Python 3 required):
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+They cover Termux/ARM64 detection, Java version parsing and Paper compatibility, configuration validation/loading, generated JVM arguments, graceful shutdown, and checks that the Docker Compose files/workflow remain present. The tests do not download or run a Paper server; the actual Termux environment, plugin downloads, Android networking, and device-specific background behavior must be tested on the Android device.
 
 ## Troubleshooting
 
-- **Docker not found / not running:** install Docker Desktop or Docker Engine + Compose v2, start Docker, then retry.
-- **A port is already in use:** change `JAVA_PORT`, `BEDROCK_PORT`, or `PANEL_PORT` in `.env` and rerun. Java uses TCP; Bedrock uses UDP.
-- **Outside players cannot join:** check the host firewall and router port forwarding; ensure the server is running and use the correct public address/port. Some ISPs use carrier-grade NAT and do not allow inbound port forwarding.
-- **Version fails to download:** set `MINECRAFT_VERSION=LATEST` or choose a version supported by the upstream server image.
-- **Plugin/mod does not load:** confirm the server type, Minecraft version, and plugin/mod dependencies. Read the server logs in the dashboard.
+- **`Run this inside the official Termux app`:** use the Termux app, not a normal Linux shell or an Android shell without Termux's package environment.
+- **ARM64 required:** use Docker mode on a desktop/VM or add a separate compatible runtime for another architecture; this native build deliberately refuses unsupported architectures.
+- **Java is missing or too old:** run `bash install-termux.sh`; check `java -version`. Paper 26.1+ requires Java 25.
+- **No stable build:** keep the stable channel, choose an older supported Paper release, or explicitly opt into `ALPHA` knowing it is experimental.
+- **Outside players cannot connect:** verify the server is running, the host firewall/router forwards Java TCP 25565 and (for Bedrock) UDP 19132, and the network permits inbound connections. Mobile carriers commonly restrict inbound hosting.
+- **Android stopped the server:** reopen Termux, inspect `logs/native-server.log`, check battery optimization settings, and use a computer or hosted server if continuous uptime matters.
+- **Plugins fail:** verify the plugin's Paper/Minecraft version support and dependencies. Read the native log or Docker dashboard logs. Do not download untrusted JARs.
 
 ## Main files
 
-- `run.sh` — one-command foreground launcher.
-- `docker-compose.yml` — server and local panel services.
-- `panel/` — local control page and API.
-- `.env.example` — editable defaults; the launcher creates a private `.env` on first run.
+- `run.sh` and `docker-compose.yml` — existing Docker foreground workflow.
+- `panel/` — Docker dashboard; it depends on Docker CLI and the Docker socket and is not the native Termux panel.
+- `install-termux.sh` and `termux-run.sh` — additive Termux installer and foreground launcher.
+- `native/manager.py`, `native/runtime.py`, `native/index.html` — native Paper manager, tested helpers, and local control page.
+- `tests/test_termux_runtime.py` — native runtime and Docker-preservation tests.
