@@ -34,15 +34,13 @@ Native mode currently supports **Android ARM64 (aarch64), Termux, and Paper only
    cd ~
    git clone https://github.com/itsdazzyprince3-sudo/minecraft-server-kit.git
    cd minecraft-server-kit
-   bash install-termux.sh
-   ```
-
-   The installer checks ARM64, Python, OpenJDK 25, and free storage. It installs only missing packages, creates directories without replacing existing files, and leaves any existing `.env`, worlds, and native settings untouched. It stops if less than 1.5 GB is free; 5 GB or more is recommended because worlds and backups grow.
-3. Read and accept the Minecraft EULA when prompted by the first run:
-
-   ```sh
    bash termux-run.sh
    ```
+
+   The launcher automatically invokes the safe installer if Python or OpenJDK 25 is missing. The installer checks ARM64 and free storage, installs only missing packages, creates directories without replacing existing files, and leaves any existing `.env`, worlds, and native settings untouched. It stops if less than 1.5 GB is free; 5 GB or more is recommended because worlds and backups grow. You can also run `bash install-termux.sh` separately as a preflight.
+3. Read and accept the Minecraft EULA when prompted by that first run:
+
+   The same `bash termux-run.sh` command is still running; type `yes` at the EULA prompt if you accept it.
 
    It starts Paper and a local control page at **http://127.0.0.1:8080**. Logs appear in Termux and are saved to `logs/native-server.log`. The page has status, start/stop/restart, console commands, recent logs, basic settings, Java/architecture information, and process memory reporting. Press **Ctrl+C** in Termux to send Paper its `stop` command, wait for a graceful save, and then stop the manager. SIGTERM/SIGKILL are last-resort fallbacks only.
 

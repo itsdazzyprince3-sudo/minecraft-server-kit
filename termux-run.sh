@@ -5,12 +5,13 @@ if [[ -z "${TERMUX_VERSION:-}" && "${PREFIX:-}" != *"/com.termux/files/usr" ]]; 
   echo "This launcher is Termux-only. On desktop Linux, keep using ./run.sh with Docker Engine and Compose v2." >&2
   exit 2
 fi
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "Python is missing. Run: bash install-termux.sh" >&2
-  exit 1
+needs_install=false
+command -v python3 >/dev/null 2>&1 || needs_install=true
+command -v java >/dev/null 2>&1 || needs_install=true
+if ! dpkg-query -W -f='${Status}' openjdk-25 2>/dev/null | grep -q 'install ok installed'; then
+  needs_install=true
 fi
-if ! command -v java >/dev/null 2>&1; then
-  echo "Java is missing. Run: bash install-termux.sh" >&2
-  exit 1
+if [[ "$needs_install" == true ]]; then
+  bash ./install-termux.sh
 fi
 exec python3 native/manager.py "$@"

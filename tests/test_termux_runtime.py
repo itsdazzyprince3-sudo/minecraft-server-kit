@@ -145,6 +145,7 @@ class DockerPreservationTests(unittest.TestCase):
         self.assertIn('docker("compose"', panel)
         self.assertTrue((ROOT / "termux-run.sh").exists())
         native_launcher = (ROOT / "termux-run.sh").read_text().lower()
+        self.assertIn("bash ./install-termux.sh", native_launcher)
         self.assertNotIn("docker compose", native_launcher)
         self.assertNotIn("command -v docker", native_launcher)
 
