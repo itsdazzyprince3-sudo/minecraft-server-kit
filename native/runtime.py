@@ -217,10 +217,10 @@ def validate_server_settings(settings: Mapping[str, str]) -> dict[str, str]:
     if not re.fullmatch(r"-?\d{1,20}", seed) or not -(2**63) <= int(seed) <= 2**63 - 1:
         raise ValueError("SEED must be a signed 64-bit integer.")
     result["SEED"] = seed
-    address = result.get("SERVER_ADDRESS", "survivalsmp.vy").strip()
+    address = result.get("SERVER_ADDRESS", "localhost").strip()
     label = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-    if len(address) > 253 or not re.fullmatch(label + r"(?:\." + label + r")+", address):
-        raise ValueError("SERVER_ADDRESS must be a hostname such as survivalsmp.example.com; it is display-only and does not configure DNS.")
+    if len(address) > 253 or (address.lower() != "localhost" and not re.fullmatch(label + r"(?:\." + label + r")+", address)):
+        raise ValueError("SERVER_ADDRESS must be localhost or a hostname such as survivalsmp.example.com; it is display-only and does not configure DNS.")
     result["SERVER_ADDRESS"] = address
     result["MEMORY"] = result.get("TERMUX_MEMORY", result.get("MEMORY", "1G"))
     parse_memory_mb(result["MEMORY"])

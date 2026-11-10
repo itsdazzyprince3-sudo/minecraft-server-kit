@@ -65,4 +65,4 @@ else
   echo "Keeping existing native/config.json unchanged."
 fi
 
-printf '\nTermux prerequisites are ready. No worlds or existing configuration were overwritten.\nNext: bash termux-run.sh\n'
+printf '\nTermux prerequisites are ready. No worlds or existing configuration were overwritten.\nNext: bash start.sh\n'

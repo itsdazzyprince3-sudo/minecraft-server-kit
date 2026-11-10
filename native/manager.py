@@ -154,6 +154,10 @@ def _local_ipv4() -> str | None:
             for line in result.stdout.splitlines():
                 device = re.match(r"^\d+:\s+([^\s:@]+)", line)
                 address = re.search(r"\binet\s+(\d{1,3}(?:\.\d{1,3}){3})/", line)
+                if not is_termux() and device and address:
+                    ip = address.group(1)
+                    if device.group(1) != "lo" and not ip.startswith(("127.", "169.254.")):
+                        return ip
                 if device and address and re.match(r"^(?:wlan|wifi|swlan|ap|softap)\w*$", device.group(1), re.I):
                     if not address.group(1).startswith("127."):
                         return address.group(1)
@@ -189,7 +193,7 @@ def _ensure_eula() -> None:
         return
     print("Read and accept the Minecraft EULA before running the server: https://aka.ms/MinecraftEULA")
     if not sys.stdin.isatty():
-        raise RuntimeError("EULA is not accepted. Run bash termux-run.sh in an interactive Termux session and type yes.")
+        raise RuntimeError("EULA is not accepted. Run bash start.sh in an interactive terminal and type yes.")
     answer = input("Do you accept the Minecraft EULA? Type yes to continue: ").strip().lower()
     if answer != "yes":
         raise RuntimeError("EULA was not accepted; server will not start.")
@@ -226,7 +230,8 @@ def _properties_file(settings: dict[str, str]) -> None:
         "motd": settings.get("MOTD", "A self-hosted Minecraft server").replace("\n", " ").replace("\r", " "),
         "pvp": settings.get("PVP", "true").lower(),
         "white-list": settings.get("ENABLE_WHITELIST", "false").lower(),
-        "online-mode": "true",
+        "online-mode": settings.get("ONLINE_MODE", "false").lower(),
+        "enforce-secure-profile": settings.get("ENFORCE_SECURE_PROFILE", "false").lower(),
         "enable-rcon": "false",
     }
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else []
@@ -370,7 +375,7 @@ class NativeServer:
         raw = parse_env_file(self.settings_path)
         raw.setdefault("WORLD_NAME", "SurvivalSMP")
         raw.setdefault("SEED", "399918057248930")
-        raw.setdefault("SERVER_ADDRESS", "survivalsmp.vy")
+        raw.setdefault("SERVER_ADDRESS", "localhost")
         native = _read_native_config()
         # Do not use Docker's generic 4G default on a phone; Termux has an isolated 1G default.
         raw["TERMUX_MEMORY"] = str(native.get("memory", raw.get("TERMUX_MEMORY", "1G")))
@@ -380,13 +385,16 @@ class NativeServer:
         return validate_server_settings(raw)
 
     def check_host(self, settings: dict[str, str]) -> tuple[str, int, str]:
-        if not is_termux():
-            raise RuntimeError("Native runtime is Termux-only. On desktop Linux use the unchanged Docker command: ./run.sh")
+        system = platform.system()
+        if system not in {"Linux", "Darwin"}:
+            raise RuntimeError(f"Native Paper mode needs Linux or macOS; detected {system}. On Windows, use .\\start.ps1 with Docker Desktop.")
         arch = normalize_arch(platform.machine())
-        if arch != "aarch64":
+        if is_termux() and arch != "aarch64":
             raise RuntimeError(f"Native Termux runtime currently supports ARM64 only; detected {arch}.")
+        if not is_termux() and arch not in {"aarch64", "x86_64"}:
+            raise RuntimeError(f"Native Paper mode supports Linux/macOS ARM64 and x86_64; detected {arch}.")
         if settings["SERVER_TYPE"] != "PAPER":
-            raise RuntimeError("Native Termux mode currently supports Paper only. Fabric/Forge/NeoForge and Vanilla remain Docker mode options.")
+            raise RuntimeError("Native mode currently supports Paper only. Fabric/Forge/NeoForge and Vanilla remain Docker mode options.")
         version = settings["MINECRAFT_VERSION"]
         if version == "LATEST":
             version = resolve_paper_version(version)
@@ -394,7 +402,8 @@ class NativeServer:
         try:
             java, major = select_java_runtime(required, shutil.which("java"), os.environ.get("PREFIX", ""))
         except ValueError as exc:
-            raise RuntimeError(f"Paper {version} requires Java {required}. {exc} Run bash install-termux.sh to install the compatible OpenJDK package.") from exc
+            install_hint = "Run bash install-termux.sh in Termux." if is_termux() else f"Install Java {required} or newer for Paper {version}."
+            raise RuntimeError(f"Paper {version} requires Java {required}. {exc} {install_hint}") from exc
         return version, major, java
 
     def _ensure_server_jar(self, version: str, update: bool = False, channel: str = "STABLE") -> Path:
@@ -412,14 +421,14 @@ class NativeServer:
                 if not old_state:
                     print("Using existing data/paper.jar (no native version metadata); it will not be overwritten.")
                 return jar
-            raise RuntimeError(f"data/paper.jar is recorded for Paper {old_state.get('version')}, requested {version}. Back up the entire data/ directory, then rerun `bash termux-run.sh --update` to replace the server JAR. World data is never deleted automatically.")
+            raise RuntimeError(f"data/paper.jar is recorded for Paper {old_state.get('version')}, requested {version}. Back up the entire data/ directory, then rerun `bash start.sh --native --update` to replace the server JAR. World data is never deleted automatically.")
         if docker_jar.exists() and not update and not jar.exists():
             print("Using existing data/server.jar from the Docker Paper deployment; it will not be overwritten.")
             return docker_jar
         world_paths = [DATA / name for name in ("world", "world_nether", "world_the_end", "worlds")]
         has_world = any(path.exists() and (not path.is_dir() or any(path.iterdir())) for path in world_paths)
         if has_world and not jar.exists() and not docker_jar.exists() and not update:
-            raise RuntimeError("Existing world data was found but no known Paper JAR is present. Back up the entire data/ directory, then rerun `bash termux-run.sh --update` and confirm the world backup before downloading Paper.")
+            raise RuntimeError("Existing world data was found but no known Paper JAR is present. Back up the entire data/ directory, then rerun `bash start.sh --native --update` and confirm the world backup before downloading Paper.")
         build = get_paper_build(version, channel)
         print(f"Downloading Paper {version}, build {build['build']} ({channel})…")
         temp_jar = DATA / "paper.jar.new"
@@ -474,8 +483,6 @@ class NativeServer:
                     print(f"Same Wi-Fi: Java {lan_ip}:{settings['JAVA_PORT']} · Bedrock {lan_ip}:{settings['BEDROCK_PORT']}")
                 else:
                     print("Same-Wi-Fi IP could not be detected. Check the phone's Wi-Fi details for its local IPv4 address.")
-                if settings.get("SERVER_ADDRESS", "").lower() == "survivalsmp.vy":
-                    print("Note: survivalsmp.vy is not a public DNS hostname; use the IP above on your Wi-Fi.")
                 return {"ok": True, "message": f"Starting Paper {version} (Java {java_major}, {memory} heap).", "pid": self.proc.pid}
             except Exception as exc:
                 self.last_error = str(exc)
@@ -629,7 +636,7 @@ class NativeServer:
             if not re.fullmatch(r"(?:LATEST|\d+\.\d+(?:\.\d+)?)", version, re.IGNORECASE):
                 raise ValueError("Enter LATEST or a dotted Minecraft release version.")
             if self.status()["running"]:
-                raise ValueError("Stop the server first. To change versions, edit MINECRAFT_VERSION in .env, back up data/, then rerun `bash termux-run.sh --update` in the terminal.")
+                raise ValueError("Stop the server first. To change versions, edit MINECRAFT_VERSION in .env, back up data/, then rerun `bash start.sh --native --update` in the terminal.")
             shared["MINECRAFT_VERSION"] = version
         # Validate using the same constraints as the launcher.
         prospective = self.settings()
@@ -729,11 +736,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--update", action="store_true", help="replace the Paper JAR after a verified download; prompts for a world-backup confirmation")
     args = parser.parse_args()
-    if not is_termux():
-        print("This native runtime is for Termux on Android ARM64. Use ./run.sh for Docker-based Linux.", file=sys.stderr)
+    system = platform.system()
+    if system not in {"Linux", "Darwin"}:
+        print("Native Paper mode needs Linux or macOS. On Windows, use .\\start.ps1 with Docker Desktop.", file=sys.stderr)
         return 2
-    if normalize_arch(platform.machine()) != "aarch64":
+    arch = normalize_arch(platform.machine())
+    if is_termux() and arch != "aarch64":
         print(f"Android ARM64 is required; detected {platform.machine()}.", file=sys.stderr)
+        return 2
+    if not is_termux() and arch not in {"aarch64", "x86_64"}:
+        print(f"Native Paper mode supports ARM64 and x86_64; detected {platform.machine()}.", file=sys.stderr)
         return 2
     world_paths = [DATA / name for name in ("world", "world_nether", "world_the_end", "worlds")]
     existing_world = any(path.exists() and (not path.is_dir() or any(path.iterdir())) for path in world_paths)

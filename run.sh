@@ -42,6 +42,7 @@ fi
 
 mkdir -p data
 export PROJECT_DIR="$(pwd -P)"
+export HOST_PROJECT_DIR="$(pwd -P)"
 printf 'Building/starting Minecraft server and local control panel.\n\nPanel: http://localhost:%s\nJava: %s:%s (TCP)\nBedrock: %s:%s (UDP)\nThe configured hostname is display-only; set public DNS and port forwarding.\n\nPress Ctrl+C in this terminal to stop both containers.\n\n' \
   "$(env_value PANEL_PORT)" "$server_address" "$(env_value JAVA_PORT)" \
   "$server_address" "$(env_value BEDROCK_PORT)"

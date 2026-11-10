@@ -11,6 +11,8 @@ services:
       - "${BEDROCK_PORT:-19132}:19132/udp"
     environment:
       EULA: "${EULA:-FALSE}"
+      ONLINE_MODE: "${ONLINE_MODE:-TRUE}"
+      ENFORCE_SECURE_PROFILE: "${ENFORCE_SECURE_PROFILE:-TRUE}"
       TYPE: "${SERVER_TYPE:-PAPER}"
       VERSION: "${MINECRAFT_VERSION:-LATEST}"
       LEVEL: "${WORLD_NAME:-SurvivalSMP}"
@@ -57,7 +59,9 @@ services:
       RCON_PASSWORD: "${RCON_PASSWORD:?Set RCON_PASSWORD in .env}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - "${PROJECT_DIR:-.}:${PROJECT_DIR:-.}"
+      - type: bind
+        source: "${HOST_PROJECT_DIR:-.}"
+        target: "${PROJECT_DIR:-/project}"
       - ./data:/data
     depends_on:
       minecraft:
