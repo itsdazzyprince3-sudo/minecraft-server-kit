@@ -1,0 +1,62 @@
+name: mcstack
+services:
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: mc-server
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    ports:
+      - "${JAVA_PORT:-25565}:25565"
+      - "${BEDROCK_PORT:-19132}:19132/udp"
+    environment:
+      EULA: "${EULA:-FALSE}"
+      TYPE: "${SERVER_TYPE:-PAPER}"
+      VERSION: "${MINECRAFT_VERSION:-LATEST}"
+      MEMORY: "${MEMORY:-4G}"
+      USE_AIKAR_FLAGS: "true"
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "${RCON_PASSWORD:?Set RCON_PASSWORD in .env}"
+      RCON_PORT: "25575"
+      ENABLE_QUERY: "false"
+      VIEW_DISTANCE: "${VIEW_DISTANCE:-8}"
+      SIMULATION_DISTANCE: "${SIMULATION_DISTANCE:-6}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-20}"
+      MOTD: "${MOTD:-A self-hosted Minecraft server}"
+      DIFFICULTY: "${DIFFICULTY:-hard}"
+      PVP: "${PVP:-true}"
+      ENABLE_WHITELIST: "${ENABLE_WHITELIST:-false}"
+      ENFORCE_WHITELIST: "${ENFORCE_WHITELIST:-false}"
+      SPAWN_PROTECTION: "${SPAWN_PROTECTION:-0}"
+      PLUGINS: "${PLUGINS:-https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot,https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot,https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download,https://hangar.papermc.io/api/v1/projects/ViaBackwards/versions/latest/PAPER/download}"
+    volumes:
+      - ./data:/data
+      - ./config/paper-world-defaults.yml:/data/config/paper-world-defaults.yml
+    healthcheck:
+      test: ["CMD-SHELL", "mc-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 120s
+    stop_grace_period: 60s
+
+  panel:
+    build: ./panel
+    container_name: mc-panel
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PANEL_PORT:-8080}:8080"
+    environment:
+      PROJECT_DIR: "${PROJECT_DIR:-/project}"
+      SERVER_CONTAINER: mc-server
+      DATA_DIR: /data
+      RCON_HOST: minecraft
+      RCON_PORT: "25575"
+      RCON_PASSWORD: "${RCON_PASSWORD:?Set RCON_PASSWORD in .env}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "${PROJECT_DIR:-.}:${PROJECT_DIR:-.}"
+      - ./data:/data
+    depends_on:
+      minecraft:
+        condition: service_started

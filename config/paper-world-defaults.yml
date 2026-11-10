@@ -1,0 +1,28 @@
+anticheat:
+  anti-xray:
+    enabled: true
+    engine-mode: 1
+    max-block-height: 64
+    update-radius: 2
+    lava-obscures: false
+    use-permission: false
+    hidden-blocks:
+      - chest
+      - ender_chest
+      - diamond_ore
+      - deepslate_diamond_ore
+      - gold_ore
+      - deepslate_gold_ore
+      - iron_ore
+      - deepslate_iron_ore
+      - emerald_ore
+      - deepslate_emerald_ore
+      - lapis_ore
+      - deepslate_lapis_ore
+      - redstone_ore
+      - deepslate_redstone_ore
+      - ancient_debris
+    replacement-blocks:
+      - stone
+      - oak_planks
+      - deepslate

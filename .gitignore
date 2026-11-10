@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+data/
+config/*
+!config/paper-world-defaults.yml
+__pycache__/
+*.py[cod]
+.DS_Store

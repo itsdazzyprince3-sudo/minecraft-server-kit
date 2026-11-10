@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Minecraft Server Console</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101510;--panel:#1a231b;--line:#334235;--green:#77df82;--muted:#a5b4a7;--red:#ff8077}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eef5ef;font:15px/1.5 system-ui,Segoe UI,sans-serif}
+    header{padding:22px max(20px,calc((100% - 1120px)/2));background:#162019;border-bottom:1px solid var(--line)}h1{font-size:23px;margin:0}header p{margin:5px 0 0;color:var(--muted)}main{max-width:1120px;margin:24px auto;padding:0 18px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}h2{font-size:17px;margin:0 0 12px}label{display:block;font-size:13px;color:var(--muted);margin:8px 0 4px}input,select,button{font:inherit;border-radius:7px;border:1px solid var(--line);padding:9px 10px;background:#111912;color:#eef5ef}input,select{width:100%}button{cursor:pointer;background:#254b2c;border-color:#3e7047;font-weight:600}button:hover{filter:brightness(1.15)}button.secondary{background:#26322a}button.danger{background:#532924;border-color:#854239}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.status{font-weight:700;color:var(--green)}.status.down{color:var(--red)}pre{white-space:pre-wrap;overflow:auto;background:#0b100c;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:340px;font:12px/1.5 ui-monospace,monospace}.logs{height:340px}.command{display:flex;gap:8px}.command input{flex:1}.hint,.muted{font-size:13px;color:var(--muted)}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.notice{border-left:3px solid #d4b34e;padding:8px 12px;background:#252318;color:#e9dfb4;font-size:13px;margin:12px 0}.result{color:var(--green);min-height:20px}.files{font:13px ui-monospace,monospace;color:var(--muted);word-break:break-word}@media(max-width:760px){.grid{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header><h1>Minecraft Server Console</h1><p>Local control panel · keep this page private</p></header>
+<main>
+  <div class="card"><div class="row"><div>Server: <span id="state" class="status">Checking…</span></div><span class="muted" id="health"></span><div style="margin-left:auto" class="row"><button class="secondary" onclick="action('start')">Start</button><button class="secondary" onclick="action('restart')">Restart</button><button class="danger" onclick="action('stop')">Stop</button></div></div><p class="muted" id="players">Loading player status…</p><div class="hint">Java uses your public/LAN address on the configured TCP port. Bedrock uses the same address and configured UDP port.</div></div>
+  <div class="grid">
+    <section class="card"><h2>Console & administration</h2><div class="command"><input id="command" placeholder="e.g. op YourName, ban Player, tp A B, kill Player" autocomplete="off"><button onclick="sendCommand()">Run</button></div><div class="hint">Commands run as the server console. Examples: <code>op</code>, <code>ban</code>, <code>tp</code>, <code>kill</code>, <code>whitelist add</code>.</div><pre id="cmdout">Ready.</pre><div class="row"><button class="secondary" onclick="quick('list')">List players</button><button class="secondary" onclick="quick('save-all')">Save world</button></div></section>
+    <section class="card"><h2>Logs</h2><pre id="logs" class="logs">Waiting for server…</pre><div class="row"><button class="secondary" onclick="refresh()">Refresh logs</button><label style="margin:0"><input type="checkbox" id="autoscroll" checked style="width:auto"> Auto-scroll</label></div></section>
+  </div>
+  <div class="grid">
+    <section class="card"><h2>Server settings</h2><div class="notice">Changing version or server type recreates the server container. Back up your world before doing this. Mods and plugins generally cannot be mixed across server types.</div>
+      <form id="settings" class="two">
+        <div><label>Server software</label><select name="SERVER_TYPE"><option>PAPER</option><option>FABRIC</option><option>FORGE</option><option>NEOFORGE</option><option>VANILLA</option></select></div>
+        <div><label>Minecraft version</label><input name="MINECRAFT_VERSION" placeholder="LATEST or a valid release number"></div>
+        <div><label>Memory (e.g. 4G)</label><input name="MEMORY" placeholder="4G"></div><div><label>Maximum players</label><input type="number" name="MAX_PLAYERS" min="1" max="1000"></div>
+        <div><label>View distance</label><input type="number" name="VIEW_DISTANCE" min="2" max="32"></div><div><label>Simulation distance</label><input type="number" name="SIMULATION_DISTANCE" min="2" max="32"></div>
+        <div><label>Difficulty</label><select name="DIFFICULTY"><option>peaceful</option><option>easy</option><option>normal</option><option>hard</option></select></div><div><label>Java port (TCP)</label><input type="number" name="JAVA_PORT" min="1" max="65535"></div>
+        <div><label>Bedrock port (UDP)</label><input type="number" name="BEDROCK_PORT" min="1" max="65535"></div><div><label>Whitelist</label><select name="ENABLE_WHITELIST"><option value="false">Off</option><option value="true">On</option></select></div>
+        <div><label>PvP</label><select name="PVP"><option value="true">On</option><option value="false">Off</option></select></div><div><label>Message of the day</label><input name="MOTD" maxlength="120"></div>
+        <div style="grid-column:1/-1"><button type="submit">Save & apply settings</button> <span class="result" id="settings-result"></span></div>
+      </form>
+    </section>
+    <section class="card"><h2>Add plugin or mod</h2><p class="hint">Upload a trusted server-side <code>.jar</code>. Paper uploads go to <code>data/plugins</code>; Fabric/Forge/NeoForge uploads go to <code>data/mods</code>. Mod versions must match the server and players' modpacks.</p>
+      <form id="upload"><input name="file" type="file" accept=".jar" required><p><button type="submit">Upload .jar</button></p></form><div id="upload-result" class="result"></div><div id="filelist" class="files"></div>
+      <div class="notice">Paper includes a basic built-in anti-x-ray. For a death-chest feature, install a compatible Paper grave/death-chest plugin from a trusted source. Cross-play and version-bridge plugins only work with compatible Paper builds; modded Java clients may not join Bedrock.</div>
+    </section>
+  </div>
+  <div class="notice">Security: this panel has Docker control access. It binds to localhost only; do not port-forward the panel port. Only forward the Minecraft Java TCP and Bedrock UDP ports if you want outside players to join. Use a whitelist for a private server.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);let loaded=false;
+async function api(url,opts={}){const r=await fetch(url,{headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||r.statusText);return j}
+async function refresh(){try{const d=await api('/api/status');$('state').textContent=d.status;$('state').className='status'+(['running'].includes(d.status)?'':' down');$('health').textContent=d.health==='healthy'?'· healthy':d.health==='unhealthy'?'· health check failing':'';$('players').textContent=d.players||'';$('logs').textContent=d.logs||'';if($('autoscroll').checked)$('logs').scrollTop=$('logs').scrollHeight;if(!loaded){const f=$('settings');for(const [k,v] of Object.entries(d.config||{})){const el=f.elements[k];if(el)el.value=v}loaded=true}const files=await api('/api/files');$('filelist').textContent=`Plugins: ${files.plugins.join(', ')||'none'}\nMods: ${files.mods.join(', ')||'none'}`}catch(e){$('state').textContent='unavailable';$('state').className='status down';$('logs').textContent=e.message}}
+async function sendCommand(){const input=$('command'),cmd=input.value.trim();if(!cmd)return;input.value='';$('cmdout').textContent='Running…';try{$('cmdout').textContent=(await api('/api/command',{method:'POST',body:JSON.stringify({command:cmd})})).output||'Command sent.'}catch(e){$('cmdout').textContent=e.message}}
+function quick(c){$('command').value=c;sendCommand()}$('command').addEventListener('keydown',e=>{if(e.key==='Enter')sendCommand()});
+async function action(a){if(a==='stop'&&!confirm('Stop the Minecraft server?'))return;try{await api('/api/action',{method:'POST',body:JSON.stringify({action:a})});setTimeout(refresh,1200)}catch(e){alert(e.message)}}
+$('settings').addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));$('settings-result').textContent='Applying…';try{const x=await api('/api/settings',{method:'PUT',body:JSON.stringify(data)});$('settings-result').textContent=x.message;loaded=false;setTimeout(refresh,2500)}catch(err){$('settings-result').textContent=err.message}});
+$('upload').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);$('upload-result').textContent='Uploading…';try{const r=await fetch('/api/upload',{method:'POST',body:fd}),j=await r.json();if(!r.ok)throw Error(j.error);$('upload-result').textContent=j.message;e.target.reset();refresh()}catch(err){$('upload-result').textContent=err.message}});
+refresh();setInterval(refresh,5000);
+</script>
+</body></html>
