@@ -291,8 +291,26 @@ def _set_geyser_port(path: Path, port: int) -> bool:
     return changed
 
 
+LEGACY_PLUGIN_URLS = {
+    "https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download":
+        "https://cdn.modrinth.com/data/P1OZGk5p/versions/Fkfcr89K/ViaVersion-5.12.2.jar",
+    "https://hangar.papermc.io/api/v1/projects/ViaBackwards/versions/latest/PAPER/download":
+        "https://cdn.modrinth.com/data/NpvuJQoq/versions/WFO37e8T/ViaBackwards-5.12.2.jar",
+}
+PLUGIN_SHA512 = {
+    LEGACY_PLUGIN_URLS["https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download"]:
+        "c6af11f50e14bc1ba239f5a90be653cce85feee30c473a4b53336b4d5527d790369cf43843f7cb06d3ac3a34fc207e7203436737ca719070644101472453401b",
+    LEGACY_PLUGIN_URLS["https://hangar.papermc.io/api/v1/projects/ViaBackwards/versions/latest/PAPER/download"]:
+        "78bc7e5fd33ecf13aee31c62e1de46a854e066a1936f294347c6798371357497fe2cc6f23f1d42003ad3050f94ac5382db95e60ffa90d765fada0322b59b0ef9",
+}
+
+
+def _plugin_urls(configured: str) -> list[str]:
+    return [LEGACY_PLUGIN_URLS.get(url.strip(), url.strip()) for url in configured.split(",") if url.strip()]
+
+
 def _download_plugins(settings: dict[str, str], version: str) -> None:
-    urls = [u.strip() for u in settings.get("PLUGINS", "").split(",") if u.strip()]
+    urls = _plugin_urls(settings.get("PLUGINS", ""))
     plugin_dir = DATA / "plugins"
     plugin_dir.mkdir(parents=True, exist_ok=True)
     for index, url in enumerate(urls, start=1):
@@ -323,6 +341,15 @@ def _download_plugins(settings: dict[str, str], version: str) -> None:
             if temp.stat().st_size < 1024:
                 temp.unlink(missing_ok=True)
                 raise RuntimeError("download was empty or unexpectedly small")
+            expected = PLUGIN_SHA512.get(url)
+            if expected:
+                digest = hashlib.sha512()
+                with temp.open("rb") as downloaded:
+                    for chunk in iter(lambda: downloaded.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                if digest.hexdigest() != expected:
+                    temp.unlink(missing_ok=True)
+                    raise RuntimeError("download failed the published SHA-512 check")
             temp.replace(target)
             print(f"Plugin downloaded: {target.name}")
         except Exception as exc:

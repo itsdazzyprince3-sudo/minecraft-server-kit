@@ -22,7 +22,7 @@ from runtime import (  # noqa: E402
     validate_port,
     validate_server_settings,
 )
-from manager import _local_ipv4, _properties_file, _set_geyser_port  # noqa: E402
+from manager import _local_ipv4, _plugin_urls, _properties_file, _set_geyser_port  # noqa: E402
 
 
 class RuntimeDetectionTests(unittest.TestCase):
@@ -116,6 +116,16 @@ class ConfigAndArgumentsTests(unittest.TestCase):
             content = (Path(tmp) / "server.properties").read_text()
             self.assertIn("level-name=SurvivalSMP", content)
             self.assertIn("level-seed=399918057248930", content)
+
+    def test_broken_hangar_via_urls_migrate_to_modrinth(self):
+        configured = (
+            "https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download,"
+            "https://hangar.papermc.io/api/v1/projects/ViaBackwards/versions/latest/PAPER/download"
+        )
+        self.assertEqual(_plugin_urls(configured), [
+            "https://cdn.modrinth.com/data/P1OZGk5p/versions/Fkfcr89K/ViaVersion-5.12.2.jar",
+            "https://cdn.modrinth.com/data/NpvuJQoq/versions/WFO37e8T/ViaBackwards-5.12.2.jar",
+        ])
 
     def test_env_parser_does_not_execute_values_and_updates_preserve_other_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
