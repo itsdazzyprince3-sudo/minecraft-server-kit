@@ -10,6 +10,7 @@ import platform
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -135,6 +136,28 @@ def _tail_log(path: Path, max_bytes: int = 262144, lines: int = 300) -> str:
         stream.seek(max(0, size - max_bytes))
         data = stream.read(max_bytes)
     return "\n".join(data.decode("utf-8", errors="replace").splitlines()[-lines:])
+
+
+def _local_ipv4() -> str | None:
+    """Best-effort route-selected local address for same-Wi-Fi clients; never reports a public IP."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("1.1.1.1", 80))
+        address = sock.getsockname()[0]
+        if address and not address.startswith("127."):
+            return address
+    except OSError:
+        pass
+    finally:
+        sock.close()
+    try:
+        result = subprocess.run(["ip", "-o", "-4", "addr", "show", "scope", "global"], capture_output=True, text=True, timeout=3)
+        for match in re.finditer(r"\binet\s+(\d{1,3}(?:\.\d{1,3}){3})/", result.stdout):
+            if not match.group(1).startswith("127."):
+                return match.group(1)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
 
 
 def _ensure_eula() -> None:
@@ -397,6 +420,14 @@ class NativeServer:
                 timer.daemon = True
                 timer.start()
                 print(f"Starting Paper {version} with Java {java_major}, max heap {memory}; PID {self.proc.pid}.")
+                print(f"Same phone: Java 127.0.0.1:{settings['JAVA_PORT']} · Bedrock 127.0.0.1:{settings['BEDROCK_PORT']}")
+                lan_ip = _local_ipv4()
+                if lan_ip:
+                    print(f"Same Wi-Fi: Java {lan_ip}:{settings['JAVA_PORT']} · Bedrock {lan_ip}:{settings['BEDROCK_PORT']}")
+                else:
+                    print("Same-Wi-Fi IP could not be detected. Check the phone's Wi-Fi details for its local IPv4 address.")
+                if settings.get("SERVER_ADDRESS", "").lower() == "survivalsmp.vy":
+                    print("Note: survivalsmp.vy is not a public DNS hostname; use the IP above on your Wi-Fi.")
                 return {"ok": True, "message": f"Starting Paper {version} (Java {java_major}, {memory} heap).", "pid": self.proc.pid}
             except Exception as exc:
                 self.last_error = str(exc)
@@ -510,6 +541,7 @@ class NativeServer:
             state = {"version": settings.get("MINECRAFT_VERSION", "LATEST"),
                      "source": "existing server.jar" if (DATA / "server.jar").exists() else "configured"}
         return {"running": running, "pid": pid, "rss_mb": rss, "last_error": self.last_error,
+                "local_ipv4": _local_ipv4(),
                 "log": log_tail, "settings": settings, "server": state,
                 "java": java, "java_major": java_major, "arch": normalize_arch(platform.machine())}
 
